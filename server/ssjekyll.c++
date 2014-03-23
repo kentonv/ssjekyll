@@ -1,0 +1,316 @@
+// Sandstorm Jekyll App
+// Copyright (c) 2014, Kenton Varda <temporal@gmail.com>
+// All rights reserved.
+//
+// This file is part of the Sandstorm API, which is licensed as follows.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice, this
+//    list of conditions and the following disclaimer.
+// 2. Redistributions in binary form must reproduce the above copyright notice,
+//    this list of conditions and the following disclaimer in the documentation
+//    and/or other materials provided with the distribution.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+// ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+// Hack around stdlib bug with C++14.
+#include <initializer_list>  // force libstdc++ to include its config
+#undef _GLIBCXX_HAVE_GETS    // correct broken config
+// End hack.
+
+#include <kj/main.h>
+#include <kj/debug.h>
+#include <kj/io.h>
+#include <kj/async-io.h>
+#include <capnp/rpc-twoparty.h>
+#include <capnp/rpc.capnp.h>
+#include <capnp/schema.h>
+#include <unistd.h>
+#include <map>
+#include <unordered_map>
+#include <time.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <errno.h>
+
+#include <sandstorm/grain.capnp.h>
+#include <sandstorm/web-session.capnp.h>
+
+namespace ssjekyll {
+
+#if __QTCREATOR
+#define KJ_MVCAP(var) var
+// QtCreator dosen't understand C++14 syntax yet.
+#else
+#define KJ_MVCAP(var) var = ::kj::mv(var)
+// Capture the given variable by move.  Place this in a lambda capture list.  Requires C++14.
+//
+// TODO(cleanup):  Move to libkj.
+#endif
+
+typedef unsigned int uint;
+typedef unsigned char byte;
+
+using sandstorm::WebSession;
+using sandstorm::UserInfo;
+using sandstorm::SessionContext;
+using sandstorm::UiView;
+using sandstorm::SandstormApi;
+using sandstorm::HttpStatusDescriptor;
+
+kj::AutoCloseFd raiiOpen(kj::StringPtr name, int flags, mode_t mode = 0666) {
+  int fd;
+  KJ_SYSCALL(fd = open(name.cStr(), flags, mode), name);
+  return kj::AutoCloseFd(fd);
+}
+
+size_t getFileSize(int fd, kj::StringPtr filename) {
+  struct stat stats;
+  KJ_SYSCALL(fstat(fd, &stats));
+  KJ_REQUIRE(S_ISREG(stats.st_mode), "Not a regular file.", filename);
+  return stats.st_size;
+}
+
+// =======================================================================================
+// WebSession
+
+class WebSessionImpl final: public WebSession::Server {
+public:
+  WebSessionImpl(UserInfo::Reader userInfo, SessionContext::Client context,
+                 WebSession::Params::Reader params)
+      : context(kj::mv(context)),
+        userDisplayName(kj::heapString(userInfo.getDisplayName().getDefaultText())),
+        basePath(kj::heapString(params.getBasePath())),
+        userAgent(kj::heapString(params.getUserAgent())),
+        acceptLanguages(kj::strArray(params.getAcceptableLanguages(), ",")) {}
+
+  kj::Promise<void> get(GetContext context) override {
+    auto path = context.getParams().getPath();
+    if (path.startsWith("file/")) {
+      return readFile(kj::str("/var/src/", path.slice(strlen("file/"))), context);
+    } else if (path == "file") {
+      auto text = dir2json("/var/src").flatten();
+      auto content = context.getResults(capnp::MessageSize { text.size() + 32, 0 }).initContent();
+      content.setStatusCode(WebSession::Response::SuccessCode::OK);
+      content.setMimeType("application/json");
+      content.getBody().setBytes(kj::arrayPtr(
+          reinterpret_cast<const byte*>(text.begin()), text.size()));
+      return kj::READY_NOW;
+    } else if (path.startsWith("preview/")) {
+      return readFile(kj::str("/var/", path), context);
+    } else if (path == "preview") {
+      auto redirect = context.getResults().initRedirect();
+      redirect.setIsPermanent(true);
+      redirect.setSwitchToGet(true);
+      redirect.setLocation("/preview/");
+      return kj::READY_NOW;
+    } else {
+      return readFile(kj::str("/client/", path), context);
+    }
+  }
+
+  kj::Promise<void> post(PostContext context) override {
+    auto params = context.getParams();
+    auto path = params.getPath();
+    KJ_REQUIRE(path.startsWith("file/"));
+
+    auto content = params.getContent().getContent();
+
+    auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
+    if (content.size() == 0) {
+      if (access(diskPath.cStr(), F_OK) != 0) {
+        KJ_SYSCALL(unlink(diskPath.cStr()));
+        // TODO(soon): rmdir parents?
+      }
+    } else {
+      kj::FdOutputStream(raiiOpen(diskPath, O_WRONLY | O_TRUNC | O_CREAT))
+          .write(content.begin(), content.size());
+    }
+
+    auto responseContent = context.getResults(capnp::MessageSize { 32, 0 }).initContent();
+    responseContent.setStatusCode(WebSession::Response::SuccessCode::OK);
+    responseContent.setMimeType("text/plain");
+    responseContent.getBody().setBytes(kj::arrayPtr(reinterpret_cast<const byte*>("ok"), 2));
+
+    return kj::READY_NOW;
+  }
+
+//  kj::Promise<void> openWebSocket(OpenWebSocketContext context) override {
+//    // We could perhaps alert on inotify on the preview directory...
+//  }
+
+private:
+  SessionContext::Client context;
+  kj::String userDisplayName;
+  kj::String basePath;
+  kj::String userAgent;
+  kj::String acceptLanguages;
+
+  kj::Promise<void> readFile(kj::String filename, GetContext context) {
+    if (filename.endsWith("/")) {
+      filename = kj::str(filename, "index.html");
+    } else {
+      // TODO:  check if directory, redirect to add '/'
+    }
+
+    auto fd = raiiOpen(filename, O_RDONLY);
+    auto size = getFileSize(fd, filename);
+    kj::FdInputStream stream(kj::mv(fd));
+    auto response = context.getResults(capnp::MessageSize { size + 32, 0 });
+    auto content = response.initContent();
+    content.setStatusCode(WebSession::Response::SuccessCode::OK);
+
+    if (filename.endsWith(".html")) {
+      content.setMimeType("text/html; charset=UTF-8");
+    } else if (filename.endsWith(".md")) {
+      content.setMimeType("text/x-markdown; charset=UTF-8");
+    } else if (filename.endsWith(".js")) {
+      content.setMimeType("text/javascript; charset=UTF-8");
+    } else if (filename.endsWith(".css")) {
+      content.setMimeType("text/css; charset=UTF-8");
+    } else if (filename.endsWith(".png")) {
+      content.setMimeType("image/png");
+    } else if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
+      content.setMimeType("image/jpeg");
+    } else {
+      content.setMimeType("text/plain; charset=UTF-8");
+    }
+
+    stream.read(content.getBody().initBytes(size).begin(), size);
+    return kj::READY_NOW;
+  }
+
+  kj::StringTree dir2json(kj::StringPtr dirname) {
+    kj::Vector<kj::String> entries;
+
+    {
+      DIR* dir = opendir(dirname.cStr());
+      if (dir == nullptr) {
+        KJ_FAIL_SYSCALL("opendir", errno, dirname);
+      }
+      KJ_DEFER(closedir(dir));
+
+      for (;;) {
+        errno = 0;
+        struct dirent* entry = readdir(dir);
+        if (entry == nullptr) {
+          int error = errno;
+          if (error == 0) {
+            break;
+          } else {
+            KJ_FAIL_SYSCALL("readdir", error, dirname);
+          }
+        }
+
+        kj::StringPtr name = entry->d_name;
+        if (name != "." && name != "..") {
+          entries.add(kj::heapString(entry->d_name));
+        }
+      }
+    }
+
+    auto children = kj::StringTree(KJ_MAP(entry, entries) {
+      auto full = kj::str(dirname, '/', entry);
+      struct stat stats;
+      KJ_SYSCALL(stat(full.cStr(), &stats));
+      auto quotedName = kj::str('"', entry, '"');
+      if (S_ISDIR(stats.st_mode)) {
+        return kj::strTree(quotedName, ":", dir2json(full));
+      } else {
+        return kj::strTree(quotedName, ":", stats.st_size);
+      }
+    }, ",");
+    return kj::strTree("{", kj::mv(children), "}");
+  }
+};
+
+class UiViewImpl final: public UiView::Server {
+public:
+//  kj::Promise<void> getViewInfo(GetViewInfoContext context) override;
+
+  kj::Promise<void> newSession(NewSessionContext context) override {
+    auto params = context.getParams();
+
+    KJ_REQUIRE(params.getSessionType() == capnp::typeId<WebSession>(),
+               "Unsupported session type.");
+
+    context.getResults(capnp::MessageSize {2, 1}).setSession(
+        kj::heap<WebSessionImpl>(params.getUserInfo(), params.getContext(),
+                                 params.getSessionParams().getAs<WebSession::Params>()));
+
+    return kj::READY_NOW;
+  }
+};
+
+class SsJekyllMain {
+public:
+  SsJekyllMain(kj::ProcessContext& context): context(context), ioContext(kj::setupAsyncIo()) {}
+
+  kj::MainFunc getMain() {
+    return kj::MainBuilder(context, "Sandstorm-Jekyll Controller",
+                           "Intended to be run as the root process of a Sandstorm app.")
+        .callAfterParsing(KJ_BIND_METHOD(*this, run))
+        .build();
+  }
+
+  class Restorer: public capnp::SturdyRefRestorer<capnp::AnyPointer> {
+  public:
+    explicit Restorer(capnp::Capability::Client&& defaultCap)
+        : defaultCap(kj::mv(defaultCap)) {}
+
+    capnp::Capability::Client restore(capnp::AnyPointer::Reader ref) override {
+      if (ref.isNull()) {
+        return defaultCap;
+      }
+      KJ_FAIL_ASSERT("Unknown ref.");
+    }
+
+  private:
+    capnp::Capability::Client defaultCap;
+  };
+
+  kj::MainBuilder::Validity run() {
+    mkdir("/var/src", 0777);
+
+    auto stream = ioContext.lowLevelProvider->wrapSocketFd(3);
+    capnp::TwoPartyVatNetwork network(*stream, capnp::rpc::twoparty::Side::CLIENT);
+    Restorer restorer(kj::heap<UiViewImpl>());
+    auto rpcSystem = capnp::makeRpcServer(network, restorer);
+
+    // Get the SandstormApi by restoring a null SturdyRef.
+    // TODO(soon):  We don't use this, but for some reason the connection doesn't come up if we
+    //   don't do this restore.  Cap'n Proto bug?  v8capnp bug?  Shell bug?
+    {
+      capnp::MallocMessageBuilder message;
+      capnp::rpc::SturdyRef::Builder ref = message.getRoot<capnp::rpc::SturdyRef>();
+      auto hostId = ref.getHostId().initAs<capnp::rpc::twoparty::SturdyRefHostId>();
+      hostId.setSide(capnp::rpc::twoparty::Side::SERVER);
+      SandstormApi::Client api = rpcSystem.restore(
+          hostId, ref.getObjectId()).castAs<SandstormApi>();
+    }
+
+    kj::NEVER_DONE.wait(ioContext.waitScope);
+  }
+
+private:
+  kj::ProcessContext& context;
+  kj::AsyncIoContext ioContext;
+};
+
+}  // namespace ssjekyll
+
+KJ_MAIN(ssjekyll::SsJekyllMain)

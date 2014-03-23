@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <title>Editor</title>
+  
+  <script type="text/javascript" src="promise-0.1.1.min.js"></script>
+  <script type="text/javascript" src="jquery-2.1.0.min.js"></script>
+  <script type="text/javascript" src="jstree/jstree.min.js"></script>
+  <link rel="stylesheet" href="jstree/themes/default/style.min.css">
+  
+  <style type="text/css" media="screen">
+    body {
+      overflow: hidden;
+    }
+    
+    #editor { 
+      margin: 0;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 250px;
+      width: 700px;
+    }
+
+    #editor.uninitialized {
+      background-color: #ebebeb;
+    }
+    
+    #sidebar {
+      margin: 0;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 249px;
+      border-right: 1px solid #888;
+    }
+
+    #status {
+      background-color: #ebebeb;
+      text-align: center;
+      border-bottom: 1px solid #888;
+    }
+
+    #save-error {
+      color: red;
+    }
+
+    #preview {
+      margin: 0;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 950px;
+      right: 0;
+      border-left: 1px solid #888;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div id="status">
+    <button id="new" onclick="newDoc()">New</button>
+    <button id="save" onclick="saveCurrent()" disabled>All Saved</button>
+    <span id="save-error"></span>
+  </div>
+  <div id="tree"></div>
+</div>
+
+<div id="preview">
+  <iframe src="/preview/"></iframe>
+</div>
+
+<script type="text/javascript">
+function doGet(url) {
+  return new Promise(function (resolve, reject) {
+    $.ajax(url, {dataType: "text"}).then(function (data, textStatus, xhr) {
+      resolve({type: xhr.getResponseHeader("Content-Type").split(";")[0], content: data});
+    }, function (xhrObject, textStatus, err) { reject(err); });
+  });
+}
+function doPut(url, data) {
+  return new Promise(function (resolve, reject) {
+    $.ajax(url, {
+      type: "POST",  // TODO(someday):  Change to PUT when Sandstorm supports it.
+      contentType: "text/plain",
+      data: data
+    }).then(resolve, function (xhrObject, textStatus, err) {
+      reject(err);
+    });
+  });
+}
+function catchErrors(promise) {
+  promise.catch(function (err) {
+    console.error(err);
+  });
+}
+
+var saveState = "saved";
+var savePromise = Promise.resolve(undefined);
+
+function saved() {
+  if (saveState === "saving") {
+    $("#save").text("All Saved");
+    saveState = "saved";
+  }
+}
+
+function saving() {
+  $("#save").prop("disabled", true).text("Saving...");
+  saveState = "saving";
+}
+
+var saveTimeout;
+function unsaved() {
+  saveState = "unsaved";
+  $("#save").prop("disabled", false).text("Save");
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(saveCurrent, 3000);
+}
+
+var currentPath;
+function saveCurrent() {
+  $("#save-error").text();
+  if (currentPath && saveState === "unsaved") {
+    saving();
+    savePromise = doPut("/file" + currentPath, editor.getValue()).then(function (response) {
+      saved();
+    }, function (err) {
+      console.error(err);
+      $("#save-error").text("Save failed!");
+      unsaved();
+    });
+  }
+  return savePromise;
+}
+
+function newDoc() {
+  saveCurrent().then(function () {
+    var filename = window.prompt("Enter file name.");
+    if (filename) {
+      var selected = $("#tree").jstree(true).get_selected(true)[0];
+      var path = "";
+      if (selected && selected.original.isDir) {
+        path = selected.original.serverPath;
+      }
+      path = path + "/" + filename;
+
+      catchErrors(doPut("/file" + path, "\n").then(function (response) {
+        $("#tree").jstree(true).destroy();
+        $("#tree").empty();
+        initTree();
+      }));
+    }
+  });
+}
+
+function filesToTree(parent, files) {
+  var result = [];
+  for (var file in files) {
+    var content = files[file];
+    var entry = {text: file};
+    var path = parent + "/" + file;
+    entry.serverPath = path;
+    if (typeof content === "object") {
+      entry.children = filesToTree(path, content);
+      entry.state = { "opened": false };
+      entry.isDir = true;
+    } else {
+      entry.icon = false;
+      entry.isDir = false;
+    }
+    result.push(entry);
+  }
+  return result;
+}
+
+function initTree() {
+  $.ajax("/file").done(function (data) {
+    $("#tree").on("activate_node.jstree", function (e, data) {
+      if (!data.node.original.isDir) {
+        var serverPath = data.node.original.serverPath;
+        catchErrors(saveCurrent().then(function () {
+          return doGet("/file" + serverPath);
+        }).then(function (data) {
+          currentPath = serverPath;
+          if (!editorInitialized) initEditor();
+          editor.removeAllListeners("change");
+          editor.setValue(data.content, -1);
+          editor.on("change", unsaved);
+          setEditorMode(data.type);
+        }));
+      }
+    }).jstree({core: {data: filesToTree("", data)}});
+  });
+}
+
+$(function () {
+  initTree();
+});
+</script>
+
+<pre id="editor" class="uninitialized"></pre>
+    
+<script src="ace/ace.js" type="text/javascript" charset="utf-8"></script>
+<script>
+var editorInitialized = false;
+var editor;
+
+var MODE_MAP = {
+  "text/javascript": "javascript",
+  "text/html": "html",
+  "text/css": "css",
+  "text/plain": "text"
+};
+
+function setEditorMode(mimeType) {
+  if (mimeType in MODE_MAP) {
+    editor.getSession().setMode("ace/mode/" + MODE_MAP[mimeType]);
+  } else {
+    editor.getSession().setMode("ace/mode/text");
+  }
+}
+
+function initEditor() {
+  $("#editor").removeClass("uninitialized");
+  editor = ace.edit("editor");
+  editor.setTheme("ace/theme/chrome");
+  editorInitialized = true;
+}
+</script>
+
+</body>
+</html>
+
