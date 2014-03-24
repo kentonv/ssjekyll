@@ -1,4 +1,4 @@
-# Sandstorm-Jekyll-Ace Editor-jsTree
+# Sandstorm-Jekyll-Ace-jsTree
 
 This is a [Sandstorm](http://sandstorm.io) app originally created in one day.
 It is primarily a mash-up of three things:
