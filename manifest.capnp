@@ -7,8 +7,10 @@ const manifest :Package.Manifest = (
   actions = [(
     input = (none = void),
     title = (defaultText = "New Jekyll Site"),
-    command = (executablePath = "/ssjekyll", args = [])
+    command = (executablePath = "/ssjekyll", args = ["-i"],
+               environ = [(key = "PATH", value = "/usr/local/bin:/usr/bin:/bin")])
   )],
-  continueCommand = (executablePath = "/ssjekyll", args = [])
+  continueCommand = (executablePath = "/ssjekyll", args = [],
+                     environ = [(key = "PATH", value = "/usr/local/bin:/usr/bin:/bin")])
 );
 

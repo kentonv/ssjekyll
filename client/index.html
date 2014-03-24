@@ -63,12 +63,29 @@
       height: 100%;
       border: none;
     }
+
+    @media screen and (max-width: 1700px) {
+      #editor {
+        right: 0;
+        width: auto;
+        height: 50%;
+      }
+      #preview {
+        left: 250px;
+        top: auto;
+        height: 50%;
+        border-left: none;
+        border-top: 1px solid #888;
+        box-sizing: border-box;
+      }
+    }
   </style>
 </head>
 <body>
 
 <div id="sidebar">
   <div id="status">
+    <button id="publish" onclick="publish()">Publish</button>
     <button id="new" onclick="newDoc()">New</button>
     <button id="save" onclick="saveCurrent()" disabled>All Saved</button>
     <span id="save-error"></span>
@@ -77,7 +94,7 @@
 </div>
 
 <div id="preview">
-  <iframe src="/preview/"></iframe>
+  <iframe></iframe>
 </div>
 
 <script type="text/javascript">
@@ -88,7 +105,7 @@ function doGet(url) {
     }, function (xhrObject, textStatus, err) { reject(err); });
   });
 }
-function doPut(url, data) {
+function doPost(url, data) {
   return new Promise(function (resolve, reject) {
     $.ajax(url, {
       type: "POST",  // TODO(someday):  Change to PUT when Sandstorm supports it.
@@ -99,10 +116,16 @@ function doPut(url, data) {
     });
   });
 }
+var doPut = doPost;  // TODO(someday):  Change to PUT when Sandstorm supports it.
 function catchErrors(promise) {
   promise.catch(function (err) {
     console.error(err);
   });
+}
+
+function reloadPreview() {
+  var iframe = $("#preview iframe")[0];
+  iframe.contentWindow.location.reload();
 }
 
 var saveState = "saved";
@@ -112,6 +135,7 @@ function saved() {
   if (saveState === "saving") {
     $("#save").text("All Saved");
     saveState = "saved";
+    setTimeout(reloadPreview, 1000);
   }
 }
 
@@ -125,7 +149,7 @@ function unsaved() {
   saveState = "unsaved";
   $("#save").prop("disabled", false).text("Save");
   if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(saveCurrent, 3000);
+  saveTimeout = setTimeout(saveCurrent, 1000);
 }
 
 var currentPath;
@@ -162,6 +186,12 @@ function newDoc() {
       }));
     }
   });
+}
+
+function publish() {
+  if (window.confirm("Publish now?")) {
+    doPost("/publish", "");
+  }
 }
 
 function filesToTree(parent, files) {
@@ -202,6 +232,11 @@ function initTree() {
       }
     }).jstree({core: {data: filesToTree("", data)}});
   });
+
+  // Wait a second to load due to startup delay.
+  setTimeout(function () {
+    $("#preview iframe")[0].src = "/preview/";
+  }, 1000);
 }
 
 $(function () {
@@ -220,6 +255,7 @@ var MODE_MAP = {
   "text/javascript": "javascript",
   "text/html": "html",
   "text/css": "css",
+  "text/yaml": "yaml",
   "text/plain": "text"
 };
 

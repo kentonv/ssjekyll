@@ -5,7 +5,7 @@ CAPNP_DIR=/usr/local/include
 
 .PHONEY: all install uninstall clean environment
 
-ssjekyll.spk: pkg/sandstorm-manifest pkg/ssjekyll pkg/client pkg/dev pkg/var pkg/tmp secret.key
+ssjekyll.spk: pkg/sandstorm-manifest pkg/ssjekyll pkg/client pkg/dev pkg/var pkg/tmp secret.key pkg/usr/bin/ruby
 	spk pack pkg secret.key ssjekyll.spk
 
 clean:
@@ -21,7 +21,7 @@ tmp/genfiles:
 	@touch tmp/genfiles
 
 pkg/sandstorm-manifest: manifest.capnp
-	@mkdir -p pkg
+	@mkdir -p pkg tmp
 	capnp eval -b manifest.capnp manifest > tmp/sandstorm-manifest
 	mv tmp/sandstorm-manifest pkg/sandstorm-manifest
 
@@ -39,4 +39,6 @@ pkg/var:
 	mkdir pkg/var
 pkg/dev:
 	mkdir pkg/dev
+pkg/usr/bin/ruby: copy-package-files.sh
+	./copy-package-files.sh
 

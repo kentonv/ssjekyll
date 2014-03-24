@@ -46,6 +46,9 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <errno.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <algorithm>
 
 #include <sandstorm/grain.capnp.h>
 #include <sandstorm/web-session.capnp.h>
@@ -83,6 +86,54 @@ size_t getFileSize(int fd, kj::StringPtr filename) {
   KJ_SYSCALL(fstat(fd, &stats));
   KJ_REQUIRE(S_ISREG(stats.st_mode), "Not a regular file.", filename);
   return stats.st_size;
+}
+
+void writeFile(kj::StringPtr filename, kj::StringPtr content) {
+  kj::FdOutputStream(raiiOpen(filename, O_WRONLY | O_CREAT | O_EXCL))
+      .write(reinterpret_cast<const byte*>(content.begin()), content.size());
+}
+
+// =======================================================================================
+// Background Jekyll
+
+pid_t runJekyll(kj::StringPtr config, kj::StringPtr outDir, bool watch) {
+  pid_t child = fork();
+  if (child == 0) {
+    // This is the child.
+    close(3);  // Close Sandstorm API socket.
+
+    KJ_SYSCALL(execlp(
+        "jekyll", "jekyll", "build", "-s", "/var/src", "-d", outDir.cStr(),
+        "--config", config.cStr(),
+        watch ? "-w" : (const char*)nullptr, (const char*)nullptr));
+    KJ_UNREACHABLE;
+  }
+
+  return child;
+}
+
+pid_t jekyllPreviewPid = 0;
+pid_t jekyllPublishPid = 0;
+
+void restartJekyllPreview() {
+  if (jekyllPreviewPid != 0) {
+    KJ_SYSCALL(kill(jekyllPreviewPid, SIGTERM));
+    int status;
+    KJ_SYSCALL(waitpid(jekyllPreviewPid, &status, 0));
+  }
+
+  jekyllPreviewPid = runJekyll("/var/src/_config_preview.yaml", "/var/preview", true);
+}
+
+void doJekyllPublish() {
+  if (jekyllPublishPid != 0) {
+    // Reap previous publish task (and prevent two publishes from happening at the same time).
+    KJ_SYSCALL(kill(jekyllPublishPid, SIGTERM));
+    int status;
+    KJ_SYSCALL(waitpid(jekyllPublishPid, &status, 0));
+  }
+
+  jekyllPublishPid = runJekyll("/var/src/_config_published.yaml", "/var/published", false);
 }
 
 // =======================================================================================
@@ -126,27 +177,44 @@ public:
   kj::Promise<void> post(PostContext context) override {
     auto params = context.getParams();
     auto path = params.getPath();
-    KJ_REQUIRE(path.startsWith("file/"));
 
-    auto content = params.getContent().getContent();
-
-    auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
-    if (content.size() == 0) {
-      if (access(diskPath.cStr(), F_OK) != 0) {
-        KJ_SYSCALL(unlink(diskPath.cStr()));
-        // TODO(soon): rmdir parents?
-      }
+    if (path == "reboot") {
+      restartJekyllPreview();
+      auto content = context.getResults(capnp::MessageSize { 32, 0 }).initContent();
+      content.setStatusCode(WebSession::Response::SuccessCode::OK);
+      content.setMimeType("text/plain");
+      content.getBody().setBytes(kj::arrayPtr(reinterpret_cast<const byte*>("ok"), 2));
+      return kj::READY_NOW;
+    } else if (path == "publish") {
+      doJekyllPublish();
+      auto content = context.getResults(capnp::MessageSize { 32, 0 }).initContent();
+      content.setStatusCode(WebSession::Response::SuccessCode::OK);
+      content.setMimeType("text/plain");
+      content.getBody().setBytes(kj::arrayPtr(reinterpret_cast<const byte*>("ok"), 2));
+      return kj::READY_NOW;
     } else {
-      kj::FdOutputStream(raiiOpen(diskPath, O_WRONLY | O_TRUNC | O_CREAT))
-          .write(content.begin(), content.size());
+      KJ_REQUIRE(path.startsWith("file/"));
+
+      auto content = params.getContent().getContent();
+
+      auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
+      if (content.size() == 0) {
+        if (access(diskPath.cStr(), F_OK) != 0) {
+          KJ_SYSCALL(unlink(diskPath.cStr()));
+          // TODO(soon): rmdir parents?
+        }
+      } else {
+        kj::FdOutputStream(raiiOpen(diskPath, O_WRONLY | O_TRUNC | O_CREAT))
+            .write(content.begin(), content.size());
+      }
+
+      auto responseContent = context.getResults(capnp::MessageSize { 32, 0 }).initContent();
+      responseContent.setStatusCode(WebSession::Response::SuccessCode::OK);
+      responseContent.setMimeType("text/plain");
+      responseContent.getBody().setBytes(kj::arrayPtr(reinterpret_cast<const byte*>("ok"), 2));
+
+      return kj::READY_NOW;
     }
-
-    auto responseContent = context.getResults(capnp::MessageSize { 32, 0 }).initContent();
-    responseContent.setStatusCode(WebSession::Response::SuccessCode::OK);
-    responseContent.setMimeType("text/plain");
-    responseContent.getBody().setBytes(kj::arrayPtr(reinterpret_cast<const byte*>("ok"), 2));
-
-    return kj::READY_NOW;
   }
 
 //  kj::Promise<void> openWebSocket(OpenWebSocketContext context) override {
@@ -182,8 +250,12 @@ private:
       content.setMimeType("text/javascript; charset=UTF-8");
     } else if (filename.endsWith(".css")) {
       content.setMimeType("text/css; charset=UTF-8");
+    } else if (filename.endsWith(".yaml")) {
+      content.setMimeType("text/yaml; charset=UTF-8");
     } else if (filename.endsWith(".png")) {
       content.setMimeType("image/png");
+    } else if (filename.endsWith(".gif")) {
+      content.setMimeType("image/gif");
     } else if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
       content.setMimeType("image/jpeg");
     } else {
@@ -223,7 +295,10 @@ private:
       }
     }
 
-    auto children = kj::StringTree(KJ_MAP(entry, entries) {
+    auto sorted = KJ_MAP(e, entries) -> kj::StringPtr { return e; };
+    std::sort(sorted.begin(), sorted.end());
+
+    auto children = kj::StringTree(KJ_MAP(entry, sorted) {
       auto full = kj::str(dirname, '/', entry);
       struct stat stats;
       KJ_SYSCALL(stat(full.cStr(), &stats));
@@ -263,6 +338,7 @@ public:
   kj::MainFunc getMain() {
     return kj::MainBuilder(context, "Sandstorm-Jekyll Controller",
                            "Intended to be run as the root process of a Sandstorm app.")
+        .addOption({'i'}, KJ_BIND_METHOD(*this, init), "Initialize a new grain.")
         .callAfterParsing(KJ_BIND_METHOD(*this, run))
         .build();
   }
@@ -283,8 +359,52 @@ public:
     capnp::Capability::Client defaultCap;
   };
 
+  kj::MainBuilder::Validity init() {
+    KJ_SYSCALL(mkdir("/var/src", 0777));
+    KJ_SYSCALL(mkdir("/var/src/_layouts", 0777));
+    KJ_SYSCALL(mkdir("/var/preview", 0777));
+    KJ_SYSCALL(mkdir("/var/published", 0777));
+
+    writeFile("/var/src/_config_preview.yaml",
+        "# Config used to generate the preview pane, which you see to your\n"
+        "# right.  The preview is continuously rebuilt while you edit.\n"
+        "\n"
+        "baseurl: /preview/  # Don't change this.\n"
+        "\n"
+        "# Add your own config below, but don't forget to update\n"
+        "# _config_published.yaml too.\n");
+    writeFile("/var/src/_config_published.yaml",
+        "# Config used when you publish the live site.  Output is written to:\n"
+        "#   /var/sandstorm/grains/$GRAIN_ID/sandbox/published\n"
+        "# For now, you'll need to tell some other web server to export that\n"
+        "# location.  If you're using alpha.sandstorm.io, e-mail Kenton to set\n"
+        "# up your domain (kenton@sandstorm.io).  Some day, this will all be\n"
+        "# available through the UI.  :)\n"
+        "\n"
+        "baseurl: /  # Note:  Different from preview.\n"
+        "\n"
+        "# Add your own config below, but don't forget to update\n"
+        "# _config_preview.yaml too, or your preview pane will\n"
+        "# look wrong.\n");
+    writeFile("/var/src/index.md",
+        "---\n"
+        "layout: page\n"
+        "title: My Site\n"
+        "---\n"
+        "\n"
+        "# Hello World!\n");
+    writeFile("/var/src/_layouts/page.html",
+        "<html>\n"
+        "<body>\n"
+        "{{ content }}\n"
+        "</body>\n"
+        "</html>\n");
+
+    return true;
+  }
+
   kj::MainBuilder::Validity run() {
-    mkdir("/var/src", 0777);
+    restartJekyllPreview();
 
     auto stream = ioContext.lowLevelProvider->wrapSocketFd(3);
     capnp::TwoPartyVatNetwork network(*stream, capnp::rpc::twoparty::Side::CLIENT);
