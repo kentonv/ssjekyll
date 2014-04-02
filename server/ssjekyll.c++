@@ -91,6 +91,69 @@ void writeFile(kj::StringPtr filename, kj::StringPtr content) {
       .write(reinterpret_cast<const byte*>(content.begin()), content.size());
 }
 
+kj::Vector<kj::String> listDirectory(kj::StringPtr dirname) {
+  kj::Vector<kj::String> entries;
+
+  DIR* dir = opendir(dirname.cStr());
+  if (dir == nullptr) {
+    KJ_FAIL_SYSCALL("opendir", errno, dirname);
+  }
+  KJ_DEFER(closedir(dir));
+
+  for (;;) {
+    errno = 0;
+    struct dirent* entry = readdir(dir);
+    if (entry == nullptr) {
+      int error = errno;
+      if (error == 0) {
+        break;
+      } else {
+        KJ_FAIL_SYSCALL("readdir", error, dirname);
+      }
+    }
+
+    kj::StringPtr name = entry->d_name;
+    if (name != "." && name != "..") {
+      entries.add(kj::heapString(entry->d_name));
+    }
+  }
+
+  return entries;
+}
+
+void ensureParentDirectoryCreated(kj::StringPtr diskPath) {
+  KJ_IF_MAYBE(lastSlash, diskPath.findLast('/')) {
+    // Strip off last component of path.
+    kj::ArrayPtr<const char> parent = diskPath.slice(0, *lastSlash);
+
+    // Strip off any further trailing slashes.
+    while (parent.size() > 0 && parent[parent.size() - 1] == '/') {
+      parent = parent.slice(0, parent.size() - 1);
+    }
+
+    if (parent.size() > 0) {
+      auto parentStr = kj::heapString(parent);
+      if (access(parentStr.cStr(), F_OK) != 0) {
+        ensureParentDirectoryCreated(parentStr);
+        KJ_SYSCALL(mkdir(parentStr.cStr(), 0777));
+      }
+    }
+  }
+}
+
+void recursivelyDelete(kj::StringPtr diskPath) {
+  struct stat stats;
+  KJ_SYSCALL(lstat(diskPath.cStr(), &stats));
+  if (S_ISDIR(stats.st_mode)) {
+    for (auto& entry: listDirectory(diskPath)) {
+      recursivelyDelete(kj::str(diskPath, '/', entry));
+    }
+    KJ_SYSCALL(rmdir(diskPath.cStr()));
+  } else {
+    KJ_SYSCALL(unlink(diskPath.cStr()));
+  }
+}
+
 // =======================================================================================
 // Background Jekyll
 
@@ -191,28 +254,47 @@ public:
       content.getBody().setBytes(kj::arrayPtr(reinterpret_cast<const byte*>("ok"), 2));
       return kj::READY_NOW;
     } else {
-      KJ_REQUIRE(path.startsWith("file/"));
-
-      auto content = params.getContent().getContent();
-
-      auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
-      if (content.size() == 0) {
-        if (access(diskPath.cStr(), F_OK) != 0) {
-          KJ_SYSCALL(unlink(diskPath.cStr()));
-          // TODO(soon): rmdir parents?
-        }
-      } else {
-        kj::FdOutputStream(raiiOpen(diskPath, O_WRONLY | O_TRUNC | O_CREAT))
-            .write(content.begin(), content.size());
-      }
-
-      auto responseContent = context.getResults(capnp::MessageSize { 32, 0 }).initContent();
-      responseContent.setStatusCode(WebSession::Response::SuccessCode::OK);
-      responseContent.setMimeType("text/plain");
-      responseContent.getBody().setBytes(kj::arrayPtr(reinterpret_cast<const byte*>("ok"), 2));
-
-      return kj::READY_NOW;
+      KJ_FAIL_REQUIRE("Invalid POST location.");
     }
+  }
+
+  kj::Promise<void> put(PutContext context) override {
+    auto params = context.getParams();
+    auto path = params.getPath();
+
+    KJ_REQUIRE(path.startsWith("file/"), "Invalid PUT location.");
+
+    auto content = params.getContent().getContent();
+
+    auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
+    ensureParentDirectoryCreated(diskPath);
+    kj::FdOutputStream(raiiOpen(diskPath, O_WRONLY | O_TRUNC | O_CREAT))
+        .write(content.begin(), content.size());
+
+    auto responseContent = context.getResults(capnp::MessageSize { 32, 0 }).initContent();
+    responseContent.setStatusCode(WebSession::Response::SuccessCode::OK);
+    responseContent.setMimeType("text/plain");
+    responseContent.getBody().setBytes(kj::arrayPtr(reinterpret_cast<const byte*>("ok"), 2));
+
+    return kj::READY_NOW;
+  }
+
+  kj::Promise<void> delete_(DeleteContext context) override {
+    auto params = context.getParams();
+    auto path = params.getPath();
+
+    KJ_REQUIRE(path.startsWith("file/"), "Invalid DELETE location.");
+
+    auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
+
+    recursivelyDelete(diskPath);
+
+    auto responseContent = context.getResults(capnp::MessageSize { 32, 0 }).initContent();
+    responseContent.setStatusCode(WebSession::Response::SuccessCode::OK);
+    responseContent.setMimeType("text/plain");
+    responseContent.getBody().setBytes(kj::arrayPtr(reinterpret_cast<const byte*>("ok"), 2));
+
+    return kj::READY_NOW;
   }
 
 //  kj::Promise<void> openWebSocket(OpenWebSocketContext context) override {
@@ -265,33 +347,7 @@ private:
   }
 
   kj::StringTree dir2json(kj::StringPtr dirname) {
-    kj::Vector<kj::String> entries;
-
-    {
-      DIR* dir = opendir(dirname.cStr());
-      if (dir == nullptr) {
-        KJ_FAIL_SYSCALL("opendir", errno, dirname);
-      }
-      KJ_DEFER(closedir(dir));
-
-      for (;;) {
-        errno = 0;
-        struct dirent* entry = readdir(dir);
-        if (entry == nullptr) {
-          int error = errno;
-          if (error == 0) {
-            break;
-          } else {
-            KJ_FAIL_SYSCALL("readdir", error, dirname);
-          }
-        }
-
-        kj::StringPtr name = entry->d_name;
-        if (name != "." && name != "..") {
-          entries.add(kj::heapString(entry->d_name));
-        }
-      }
-    }
+    auto entries = listDirectory(dirname);
 
     auto sorted = KJ_MAP(e, entries) -> kj::StringPtr { return e; };
     std::sort(sorted.begin(), sorted.end());

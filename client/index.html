@@ -41,6 +41,7 @@
     #status {
       background-color: #ebebeb;
       text-align: center;
+      white-space: nowrap;
       border-bottom: 1px solid #888;
     }
 
@@ -87,7 +88,8 @@
   <div id="status">
     <button id="publish" onclick="publish()">Publish</button>
     <button id="new" onclick="newDoc()">New</button>
-    <button id="save" onclick="saveCurrent()" disabled>All Saved</button>
+    <button id="new" onclick="deleteDoc()">Delete</button>
+    <button id="save" onclick="saveCurrent()" disabled>Saved</button><br>
     <span id="save-error"></span>
   </div>
   <div id="tree"></div>
@@ -108,7 +110,7 @@ function doGet(url) {
 function doPost(url, data) {
   return new Promise(function (resolve, reject) {
     $.ajax(url, {
-      type: "POST",  // TODO(someday):  Change to PUT when Sandstorm supports it.
+      type: "POST",
       contentType: "text/plain",
       data: data
     }).then(resolve, function (xhrObject, textStatus, err) {
@@ -116,7 +118,26 @@ function doPost(url, data) {
     });
   });
 }
-var doPut = doPost;  // TODO(someday):  Change to PUT when Sandstorm supports it.
+function doPut(url, data) {
+  return new Promise(function (resolve, reject) {
+    $.ajax(url, {
+      type: "PUT",
+      contentType: "text/plain",
+      data: data
+    }).then(resolve, function (xhrObject, textStatus, err) {
+      reject(err);
+    });
+  });
+}
+function doDelete(url) {
+  return new Promise(function (resolve, reject) {
+    $.ajax(url, {
+      type: "DELETE"
+    }).then(resolve, function (xhrObject, textStatus, err) {
+      reject(err);
+    });
+  });
+}
 function catchErrors(promise) {
   promise.catch(function (err) {
     console.error(err);
@@ -133,7 +154,7 @@ var savePromise = Promise.resolve(undefined);
 
 function saved() {
   if (saveState === "saving") {
-    $("#save").text("All Saved");
+    $("#save").text("Saved");
     saveState = "saved";
     setTimeout(reloadPreview, 1000);
   }
@@ -186,6 +207,23 @@ function newDoc() {
       }));
     }
   });
+}
+
+function deleteDoc() {
+  var selected = $("#tree").jstree(true).get_selected(true)[0];
+  if (!selected) {
+    window.alert("You must select a file to delete.");
+    return;
+  }
+
+  var path = selected.original.serverPath;
+  if (window.confirm("Delete " + path + "?")) {
+    doDelete("/file" + path).then(function (response) {
+      $("#tree").jstree(true).destroy();
+      $("#tree").empty();
+      initTree();
+    });
+  }
 }
 
 function publish() {

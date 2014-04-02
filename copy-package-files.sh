@@ -24,7 +24,7 @@ rmdir pkg/var/lib
 
 mkdir -p pkg/bin
 cp /bin/busybox pkg/bin/sh
-ln -s sh pkg/bin/which  # used by jekyll
+ln -sf sh pkg/bin/which  # used by jekyll
 sed -i -e "s/'var'/'usr'/g" pkg/usr/lib/ruby/1.9.1/rubygems/defaults.rb
 
 # addusersitepackages() fails when there's no /etc/passwd, but we don't want it anyway.

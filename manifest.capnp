@@ -3,7 +3,7 @@
 using Package = import "/sandstorm/package.capnp";
 
 const manifest :Package.Manifest = (
-  appVersion = 0,
+  appVersion = 1,
   actions = [(
     input = (none = void),
     title = (defaultText = "New Jekyll Site"),
