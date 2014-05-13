@@ -20,4 +20,4 @@ This app is available on the [Sandstorm App List](http://sandstorm.io/apps).
 
 This app is not currently "collaborative".  If multiple people try to access
 the same app instance at the same time, they are very likely to overwrite each
-other's changes.
+other's changes. This is a limitation of the app, not of Sandstorm.
