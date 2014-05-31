@@ -49,7 +49,7 @@ const pkgdef :Spk.PackageDefinition = (
   alwaysInclude = [
     "client",
     "usr/share/rubygems-integration/1.9.1/gems/pygments.rb-0.5.4",
-    "/usr/share/rubygems-integration/1.9.1/gems/maruku-0.7.0"
+    "usr/share/rubygems-integration/1.9.1/gems/maruku-0.7.0"
   ]
 );
 

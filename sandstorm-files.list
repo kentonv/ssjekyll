@@ -126,8 +126,6 @@ usr/lib/python2.7/dist-packages/mercurial-2.9.2.egg-info
 usr/lib/python2.7/dist-packages/numpy-1.8.1.egg-info
 usr/lib/python2.7/dist-packages/pexpect-3.1.egg-info
 usr/lib/python2.7/dist-packages/pip-1.5.5.egg-info/entry_points.txt
-usr/lib/python2.7/dist-packages/pkg_resources.py
-usr/lib/python2.7/dist-packages/pkg_resources.pyc
 usr/lib/python2.7/dist-packages/pycrypto-2.6.1.egg-info
 usr/lib/python2.7/dist-packages/pycups-1.9.63.egg-info
 usr/lib/python2.7/dist-packages/pycurl-7.19.3.1.egg-info
@@ -138,7 +136,6 @@ usr/lib/python2.7/dist-packages/python-support.pth
 usr/lib/python2.7/dist-packages/python_apt-0.9.3.6.egg-info
 usr/lib/python2.7/dist-packages/pyxdg-0.25.egg-info
 usr/lib/python2.7/dist-packages/reportlab-3.0.egg-info
-usr/lib/python2.7/dist-packages/setuptools-3.4.4.egg-info/entry_points.txt
 usr/lib/python2.7/dist-packages/setuptools.pth
 usr/lib/python2.7/dist-packages/six-1.6.1.egg-info
 usr/lib/python2.7/dist-packages/youtube_dl-2014.02.17.egg-info/entry_points.txt
@@ -408,7 +405,6 @@ usr/share/pyshared/Pygments-1.6.egg-info/entry_points.txt
 usr/share/pyshared/chardet-2.2.1.egg-info/entry_points.txt
 usr/share/pyshared/gtk-2.0-pysupport-compat.pth
 usr/share/pyshared/gyp-0.1.egg-info/entry_points.txt
-usr/share/pyshared/pkg_resources.py
 usr/share/pyshared/pygtk.pth
 usr/share/pyshared/setuptools-3.4.4.egg-info/entry_points.txt
 usr/share/pyshared/setuptools.pth
