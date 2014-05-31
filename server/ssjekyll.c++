@@ -50,6 +50,7 @@
 
 #include <sandstorm/grain.capnp.h>
 #include <sandstorm/web-session.capnp.h>
+#include <sandstorm/hack-session.capnp.h>
 
 namespace ssjekyll {
 
@@ -216,7 +217,8 @@ public:
       return readFile(kj::str("/var/src/", path.slice(strlen("file/"))), context);
     } else if (path == "file") {
       auto text = dir2json("/var/src").flatten();
-      auto content = context.getResults(capnp::MessageSize { text.size() + 32, 0 }).initContent();
+      auto content = context.getResults(capnp::MessageSize {
+          text.size() / sizeof(capnp::word) + 32, 0 }).initContent();
       content.setStatusCode(WebSession::Response::SuccessCode::OK);
       content.setMimeType("application/json");
       content.getBody().setBytes(kj::arrayPtr(
@@ -230,6 +232,18 @@ public:
       redirect.setSwitchToGet(true);
       redirect.setLocation("/preview/");
       return kj::READY_NOW;
+    } else if (path == "publicId") {
+      return this->context.castAs<HackSessionContext>().getPublicIdRequest().send()
+          .then([context](auto&& response) mutable {
+        auto text = kj::str("{ \"publicId\": \"", response.getPublicId(), "\",\n"
+                            "  \"hostname\": \"", response.getHostname(), "\" }");
+        auto content = context.getResults(capnp::MessageSize {
+            text.size() / sizeof(capnp::word) + 32, 0 }).initContent();
+        content.setStatusCode(WebSession::Response::SuccessCode::OK);
+        content.setMimeType("application/json");
+        content.getBody().setBytes(kj::arrayPtr(
+            reinterpret_cast<const byte*>(text.begin()), text.size()));
+      });
     } else {
       return readFile(kj::str("/client/", path), context);
     }
@@ -420,20 +434,15 @@ public:
     KJ_SYSCALL(mkdir("/var/published", 0777));
 
     writeFile("/var/src/_config_preview.yaml",
-        "# Config used to generate the preview pane, which you see to your\n"
-        "# right.  The preview is continuously rebuilt while you edit.\n"
+        "# Config used to generate the preview pane.\n"
+        "# The preview is continuously rebuilt while you edit.\n"
         "\n"
         "baseurl: /preview/  # Don't change this.\n"
         "\n"
         "# Add your own config below, but don't forget to update\n"
         "# _config_published.yaml too.\n");
     writeFile("/var/src/_config_published.yaml",
-        "# Config used when you publish the live site.  Output is written to:\n"
-        "#   /var/sandstorm/grains/$GRAIN_ID/sandbox/published\n"
-        "# For now, you'll need to tell some other web server to export that\n"
-        "# location.  If you're using alpha.sandstorm.io, e-mail Kenton to set\n"
-        "# up your domain (kenton@sandstorm.io).  Some day, this will all be\n"
-        "# available through the UI.  :)\n"
+        "# Config used when you publish the live site.\n"
         "\n"
         "baseurl: /  # Note:  Different from preview.\n"
         "\n"
@@ -458,6 +467,12 @@ public:
   }
 
   kj::MainBuilder::Validity run() {
+    // ssjekyll predates /var/www becoming the special directory for serving static content, and
+    // instead uses /var/published. We create a symlink to work around this. We can't do this in
+    // init() since we want grains created with the old version to be upgradable. We ignore any
+    // errors because it's probably just an EEXIST.
+    symlink("published", "/var/www");
+
     restartJekyllPreview();
 
     auto stream = ioContext.lowLevelProvider->wrapSocketFd(3);

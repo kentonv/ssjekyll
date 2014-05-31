@@ -1,7 +1,7 @@
 CXX=clang++
 CXXFLAGS=-O2 -Wall
 CXXFLAGS2=-std=c++1y -Itmp $(CXXFLAGS)
-CAPNP_DIR=/usr/local/include
+CAPNP_DIR=/opt/sandstorm/latest/usr/include
 
 .PHONEY: all install uninstall clean environment
 

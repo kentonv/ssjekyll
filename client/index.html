@@ -59,6 +59,31 @@
       border-left: 1px solid #888;
     }
 
+    #howto {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: none;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+    }
+
+    #howto>div {
+      position: fixed;
+      top: 100px;
+      left: 100px;
+      right: 100px;
+      background-color: white;
+      padding: 50px;
+      border: 1px solid black;
+    }
+
+    #howto.shown {
+      display: block;
+    }
+
     iframe {
       width: 100%;
       height: 100%;
@@ -88,8 +113,11 @@
   <div id="status">
     <button id="publish" onclick="publish()">Publish</button>
     <button id="new" onclick="newDoc()">New</button>
-    <button id="new" onclick="deleteDoc()">Delete</button>
+    <button id="delete" onclick="deleteDoc()">Delete</button>
     <button id="save" onclick="saveCurrent()" disabled>Saved</button><br>
+    <button id="showHowto" onclick="showHowto()">Setup DNS</button>
+    <button id="reset" onclick="resetJekyll()"
+        title="Click this if the preview seems to have stopped updating (Jekyll bug).">Reset Preview</button><br>
     <span id="save-error"></span>
   </div>
   <div id="tree"></div>
@@ -97,6 +125,16 @@
 
 <div id="preview">
   <iframe></iframe>
+</div>
+
+<div id="howto">
+  <div>
+    <p>To set up your domain to point at your published site, add the following DNS records to
+      your domain. Replace <code>host.example.com</code> with your site's hostname.
+    <pre>host.example.com IN CNAME <span id="howto-hostname">hostname</span>
+host.example.com IN TXT sandstorm-www=<span id="howto-id">id</span></pre>
+    <p><button onclick="hideHowto()">Close</button>
+  </div>
 </div>
 
 <script type="text/javascript">
@@ -280,6 +318,25 @@ function initTree() {
 $(function () {
   initTree();
 });
+
+function showHowto() {
+  doGet("/publicId").then(function (info) {
+    info = JSON.parse(info.content);
+    $("#howto-hostname").text(info.hostname);
+    $("#howto-id").text(info.publicId);
+    $("#howto").addClass("shown");
+  });
+}
+
+function hideHowto() {
+  $("#howto").removeClass("shown");
+}
+
+function resetJekyll() {
+  doPost("/reboot", "").then(function () {
+    setTimeout(reloadPreview, 1000);
+  });
+}
 </script>
 
 <pre id="editor" class="uninitialized"></pre>
