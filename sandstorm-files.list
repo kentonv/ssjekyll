@@ -7,6 +7,8 @@ bin/sh
 bin/ssjekyll
 bin/which
 client/ace/ace.js
+client/ace/mode-markdown.js
+client/ace/theme-chrome.js
 client/index.html
 client/jquery-2.1.0.min.js
 client/jstree/jstree.min.js
@@ -60,6 +62,7 @@ usr/lib/pymodules/python2.7
 usr/lib/pymodules/python2.7/.path
 usr/lib/pymodules/python2.7/SOAPpy-0.12.0.egg-info
 usr/lib/pymodules/python2.7/fpconst-0.7.2.egg-info
+usr/lib/pymodules/python2.7/lockfile-0.8.egg-info
 usr/lib/pymodules/python2.7/openshot-1.4.3.egg-info
 usr/lib/pymodules/python2.7/python_debianbts-1.11.egg-info
 usr/lib/python2.7
@@ -89,6 +92,7 @@ usr/lib/python2.7/ctypes/_endian.py
 usr/lib/python2.7/ctypes/_endian.pyc
 usr/lib/python2.7/dist-packages
 usr/lib/python2.7/dist-packages/Brlapi-0.6.1.egg-info
+usr/lib/python2.7/dist-packages/Jinja2-2.7.2.egg-info/entry_points.txt
 usr/lib/python2.7/dist-packages/Mako-0.9.1.egg-info/entry_points.txt
 usr/lib/python2.7/dist-packages/PIL/Image.py
 usr/lib/python2.7/dist-packages/PIL/Image.pyc
@@ -112,6 +116,7 @@ usr/lib/python2.7/dist-packages/PILcompat
 usr/lib/python2.7/dist-packages/PILcompat.pth
 usr/lib/python2.7/dist-packages/Pygments-1.6.egg-info/entry_points.txt
 usr/lib/python2.7/dist-packages/chardet-2.2.1.egg-info/entry_points.txt
+usr/lib/python2.7/dist-packages/colorama-0.2.5.egg-info
 usr/lib/python2.7/dist-packages/gtk-2.0
 usr/lib/python2.7/dist-packages/gtk-2.0-pysupport-compat.pth
 usr/lib/python2.7/dist-packages/gyp-0.1.egg-info/entry_points.txt
@@ -120,11 +125,13 @@ usr/lib/python2.7/dist-packages/louis-2.5.3.egg-info
 usr/lib/python2.7/dist-packages/mercurial-2.9.2.egg-info
 usr/lib/python2.7/dist-packages/numpy-1.8.1.egg-info
 usr/lib/python2.7/dist-packages/pexpect-3.1.egg-info
+usr/lib/python2.7/dist-packages/pip-1.5.5.egg-info/entry_points.txt
 usr/lib/python2.7/dist-packages/pkg_resources.py
 usr/lib/python2.7/dist-packages/pkg_resources.pyc
 usr/lib/python2.7/dist-packages/pycrypto-2.6.1.egg-info
 usr/lib/python2.7/dist-packages/pycups-1.9.63.egg-info
 usr/lib/python2.7/dist-packages/pycurl-7.19.3.1.egg-info
+usr/lib/python2.7/dist-packages/pydns-2.3.6.egg-info
 usr/lib/python2.7/dist-packages/pygobject-3.12.1.egg-info
 usr/lib/python2.7/dist-packages/pygtk.pth
 usr/lib/python2.7/dist-packages/python-support.pth
@@ -381,7 +388,12 @@ usr/lib/x86_64-linux-gnu/libyaml-0.so.2.0.2
 usr/local/bin/jekyll
 usr/local/lib/python2.7/dist-packages
 usr/local/lib/python2.7/dist-packages/CapnpPygmentsLexer-0.1-py2.7.egg
+usr/local/lib/python2.7/dist-packages/Cython-0.20.1.egg-info/entry_points.txt
 usr/local/lib/python2.7/dist-packages/easy-install.pth
+usr/local/lib/python2.7/dist-packages/pkg_resources.py
+usr/local/lib/python2.7/dist-packages/pkg_resources.pyc
+usr/local/lib/python2.7/dist-packages/setuptools-3.6.dist-info/entry_points.txt
+usr/share/pyshared/Jinja2-2.7.2.egg-info/entry_points.txt
 usr/share/pyshared/Mako-0.9.1.egg-info/entry_points.txt
 usr/share/pyshared/PIL/Image.py
 usr/share/pyshared/PIL/ImageColor.py
