@@ -122,6 +122,22 @@ kj::Vector<kj::String> listDirectory(kj::StringPtr dirname) {
   return entries;
 }
 
+kj::String dirnamePath(kj::StringPtr diskPath) {
+  KJ_IF_MAYBE(lastSlash, diskPath.findLast('/')) {
+    // Strip off last component of path.
+    kj::ArrayPtr<const char> parent = diskPath.slice(0, *lastSlash);
+
+    // Strip off any further trailing slashes.
+    while (parent.size() > 0 && parent[parent.size() - 1] == '/') {
+      parent = parent.slice(0, parent.size() - 1);
+    }
+
+    return kj::heapString(parent);
+  } else {
+    KJ_FAIL_REQUIRE("Disk path had no slashes in it");
+  }
+}
+
 void ensureParentDirectoryCreated(kj::StringPtr diskPath) {
   KJ_IF_MAYBE(lastSlash, diskPath.findLast('/')) {
     // Strip off last component of path.
@@ -282,8 +298,22 @@ public:
 
     auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
     ensureParentDirectoryCreated(diskPath);
-    kj::FdOutputStream(raiiOpen(diskPath, O_WRONLY | O_TRUNC | O_CREAT))
-        .write(content.begin(), content.size());
+
+    if(path.endsWith(".tar")) {
+      // Write archive to temp path to work around jekyll auto-detecting changes in src directory
+      auto tmpPath = kj::str("/tmp/src/", path.slice(strlen("file/")));
+      ensureParentDirectoryCreated(tmpPath);
+      kj::FdOutputStream(raiiOpen(tmpPath, O_WRONLY | O_TRUNC | O_CREAT))
+          .write(content.begin(), content.size());
+
+      auto outDir = dirnamePath(diskPath);
+      // TODO: make sure this is safe
+      KJ_SYSCALL(system(kj::str("tar xf ", tmpPath, " -C ", outDir).cStr()));
+      KJ_SYSCALL(unlink(tmpPath.cStr()));
+    } else {
+      kj::FdOutputStream(raiiOpen(diskPath, O_WRONLY | O_TRUNC | O_CREAT))
+          .write(content.begin(), content.size());
+    }
 
     auto responseContent = context.getResults(capnp::MessageSize { 32, 0 }).initContent();
     responseContent.setStatusCode(WebSession::Response::SuccessCode::OK);
