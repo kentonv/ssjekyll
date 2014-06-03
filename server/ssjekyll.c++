@@ -138,6 +138,26 @@ kj::String dirnamePath(kj::StringPtr diskPath) {
   }
 }
 
+template<class... Args>
+void callProcess(Args&&... args) {
+  pid_t pid = fork();
+
+  if (pid == -1)
+  {
+    KJ_UNREACHABLE;
+  }
+  else if (pid > 0)
+  {
+    int status;
+    waitpid(pid, &status, 0);
+  }
+  else
+  {
+    KJ_SYSCALL(execlp(std::forward<Args>(args)..., (const char*)nullptr));
+    KJ_UNREACHABLE;
+  }
+}
+
 void ensureParentDirectoryCreated(kj::StringPtr diskPath) {
   KJ_IF_MAYBE(lastSlash, diskPath.findLast('/')) {
     // Strip off last component of path.
@@ -307,8 +327,8 @@ public:
           .write(content.begin(), content.size());
 
       auto outDir = dirnamePath(diskPath);
-      // TODO: make sure this is safe
-      KJ_SYSCALL(system(kj::str("tar xf ", tmpPath, " -C ", outDir).cStr()));
+
+      callProcess("tar", "tar", "xf", tmpPath.cStr(), "-C", outDir.cStr());
       KJ_SYSCALL(unlink(tmpPath.cStr()));
     } else {
       kj::FdOutputStream(raiiOpen(diskPath, O_WRONLY | O_TRUNC | O_CREAT))
