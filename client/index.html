@@ -78,6 +78,7 @@
       background-color: white;
       padding: 50px;
       border: 1px solid black;
+      font-family: sans-serif;
     }
 
     #howto.shown {
@@ -133,6 +134,8 @@
       your domain. Replace <code>host.example.com</code> with your site's hostname.
     <pre>host.example.com IN CNAME <span id="howto-hostname">hostname</span>
 sandstorm-www.host.example.com IN TXT <span id="howto-id">id</span></pre>
+    <p>Note: If your site may get a lot of traffic, consider putting it behind a CDN.
+      <a href="https://cloudflare.com" target="_blank">CloudFlare</a>, for example, can do this for free.
     <p><button onclick="hideHowto()">Close</button>
   </div>
 </div>
