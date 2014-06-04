@@ -9,8 +9,7 @@ It is primarily a mash-up of three things:
 
 Combining these three items, the app provides a browser-based CMS.  You can edit
 your site's input files, see a live preview, and "publish" the site e.g. to
-your domain name.  (Currentnly, Sandstorm doesn't support web hosting, so you
-must manually point your web server at the app's storage location to publish.)
+your domain name.
 
 ![Screen shot.](screenshot.png "Screenshot")
 
