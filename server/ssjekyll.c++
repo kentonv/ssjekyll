@@ -305,17 +305,20 @@ public:
   kj::Promise<void> put(PutContext context) override {
     auto params = context.getParams();
     auto path = params.getPath();
-
-    KJ_REQUIRE(path.startsWith("file/"), "Invalid PUT location.");
-
     auto content = params.getContent().getContent();
 
-    auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
-    ensureParentDirectoryCreated(diskPath);
+    if (path.startsWith("archive/")) {
+      auto archive = path.slice(strlen("archive/"));
 
-    if(path.endsWith(".tar")) {
+      if (!archive.endsWith(".tar")) {
+        KJ_FAIL_REQUIRE("Only .tar bundles are supported at the moment.");
+      }
+
+      auto diskPath = kj::str("/var/src/", archive);
+      ensureParentDirectoryCreated(diskPath);
+
       // Write archive to temp path to work around jekyll auto-detecting changes in src directory
-      auto tmpPath = kj::str("/tmp/src/", path.slice(strlen("file/")));
+      auto tmpPath = kj::str("/tmp/src/", archive);
       ensureParentDirectoryCreated(tmpPath);
       kj::FdOutputStream(raiiOpen(tmpPath, O_WRONLY | O_TRUNC | O_CREAT))
           .write(content.begin(), content.size());
@@ -324,9 +327,14 @@ public:
 
       callProcess("tar", "tar", "xf", tmpPath.cStr(), "-C", outDir.cStr());
       KJ_SYSCALL(unlink(tmpPath.cStr()));
-    } else {
+    } else if (path.startsWith("file/")) {
+      auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
+      ensureParentDirectoryCreated(diskPath);
+
       kj::FdOutputStream(raiiOpen(diskPath, O_WRONLY | O_TRUNC | O_CREAT))
           .write(content.begin(), content.size());
+    } else {
+      KJ_FAIL_REQUIRE("Invalid PUT location.");
     }
 
     auto responseContent = context.getResults(capnp::MessageSize { 32, 0 }).initContent();

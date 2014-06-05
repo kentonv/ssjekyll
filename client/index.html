@@ -117,6 +117,7 @@
     <button id="delete" onclick="deleteDoc()">Delete</button>
     <button id="save" onclick="saveCurrent()" disabled>Saved</button><br>
     <button id="upload" onclick="uploadFile()">Upload</button>
+    <button id="uploadArchive" onclick="uploadFile(true)">Upload Archive</button><br>
     <button id="showHowto" onclick="showHowto()">Setup DNS</button>
     <button id="reset" onclick="resetJekyll()"
         title="Click this if the preview seems to have stopped updating (Jekyll bug).">Reset Preview</button><br>
@@ -255,7 +256,12 @@ function newDoc() {
   });
 }
 
-function uploadFile() {
+function uploadFile(isArchive) {
+  api = '/file'
+  if (isArchive) {
+    api = '/archive'
+  }
+
   // Can't saveCurrent first because you can't trigger DOM events (ie. click) inside Promises
 
   var form = $('<form><input type="file" name="test"></form>', { css: { 'display': 'none' }});
@@ -271,7 +277,7 @@ function uploadFile() {
   input.on('change', function(e) {
     $.each(this.files, function(key, file) {
       var filePath = path + "/" + file.name;
-      catchErrors(doPut("/file" + filePath, file, false).then(function (response) {
+      catchErrors(doPut(api + filePath, file, false).then(function (response) {
         $("#tree").jstree(true).destroy();
         $("#tree").empty();
         initTree();
