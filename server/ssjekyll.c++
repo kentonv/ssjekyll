@@ -140,20 +140,14 @@ kj::String dirnamePath(kj::StringPtr diskPath) {
 
 template<class... Args>
 void callProcess(Args&&... args) {
-  pid_t pid = fork();
+  pid_t pid;
+  KJ_SYSCALL(pid = fork());
 
-  if (pid == -1)
-  {
-    KJ_UNREACHABLE;
-  }
-  else if (pid > 0)
-  {
+  if (pid > 0) {
     int status;
     waitpid(pid, &status, 0);
-  }
-  else
-  {
-    KJ_SYSCALL(execlp(std::forward<Args>(args)..., (const char*)nullptr));
+  } else {
+    KJ_SYSCALL(execlp(kj::fwd<Args>(args)..., (const char*)nullptr));
     KJ_UNREACHABLE;
   }
 }
