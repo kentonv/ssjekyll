@@ -5,10 +5,13 @@
 bin/dash
 bin/sh
 bin/ssjekyll
+bin/tar
 bin/which
 client/ace/ace.js
+client/ace/mode-html.js
 client/ace/mode-markdown.js
 client/ace/theme-chrome.js
+client/ace/worker-html.js
 client/index.html
 client/jquery-2.1.0.min.js
 client/jstree/jstree.min.js
@@ -22,6 +25,10 @@ etc/nsswitch.conf
 etc/passwd
 etc/python2.7/sitecustomize.py
 lib/x86_64-linux-gnu/ld-2.18.so
+lib/x86_64-linux-gnu/libacl.so.1
+lib/x86_64-linux-gnu/libacl.so.1.1.0
+lib/x86_64-linux-gnu/libattr.so.1
+lib/x86_64-linux-gnu/libattr.so.1.1.0
 lib/x86_64-linux-gnu/libc-2.18.so
 lib/x86_64-linux-gnu/libc.so.6
 lib/x86_64-linux-gnu/libcrypt-2.18.so

@@ -122,6 +122,36 @@ kj::Vector<kj::String> listDirectory(kj::StringPtr dirname) {
   return entries;
 }
 
+kj::String dirnamePath(kj::StringPtr diskPath) {
+  KJ_IF_MAYBE(lastSlash, diskPath.findLast('/')) {
+    // Strip off last component of path.
+    kj::ArrayPtr<const char> parent = diskPath.slice(0, *lastSlash);
+
+    // Strip off any further trailing slashes.
+    while (parent.size() > 0 && parent[parent.size() - 1] == '/') {
+      parent = parent.slice(0, parent.size() - 1);
+    }
+
+    return kj::heapString(parent);
+  } else {
+    KJ_FAIL_REQUIRE("Disk path had no slashes in it");
+  }
+}
+
+template<class... Args>
+void callProcess(Args&&... args) {
+  pid_t pid;
+  KJ_SYSCALL(pid = fork());
+
+  if (pid > 0) {
+    int status;
+    waitpid(pid, &status, 0);
+  } else {
+    KJ_SYSCALL(execlp(kj::fwd<Args>(args)..., (const char*)nullptr));
+    KJ_UNREACHABLE;
+  }
+}
+
 void ensureParentDirectoryCreated(kj::StringPtr diskPath) {
   KJ_IF_MAYBE(lastSlash, diskPath.findLast('/')) {
     // Strip off last component of path.
@@ -275,15 +305,37 @@ public:
   kj::Promise<void> put(PutContext context) override {
     auto params = context.getParams();
     auto path = params.getPath();
-
-    KJ_REQUIRE(path.startsWith("file/"), "Invalid PUT location.");
-
     auto content = params.getContent().getContent();
 
-    auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
-    ensureParentDirectoryCreated(diskPath);
-    kj::FdOutputStream(raiiOpen(diskPath, O_WRONLY | O_TRUNC | O_CREAT))
-        .write(content.begin(), content.size());
+    if (path.startsWith("archive/")) {
+      auto archive = path.slice(strlen("archive/"));
+
+      if (!archive.endsWith(".tar")) {
+        KJ_FAIL_REQUIRE("Only .tar bundles are supported at the moment.");
+      }
+
+      auto diskPath = kj::str("/var/src/", archive);
+      ensureParentDirectoryCreated(diskPath);
+
+      // Write archive to temp path to work around jekyll auto-detecting changes in src directory
+      auto tmpPath = kj::str("/tmp/src/", archive);
+      ensureParentDirectoryCreated(tmpPath);
+      kj::FdOutputStream(raiiOpen(tmpPath, O_WRONLY | O_TRUNC | O_CREAT))
+          .write(content.begin(), content.size());
+
+      auto outDir = dirnamePath(diskPath);
+
+      callProcess("tar", "tar", "xf", tmpPath.cStr(), "-C", outDir.cStr());
+      KJ_SYSCALL(unlink(tmpPath.cStr()));
+    } else if (path.startsWith("file/")) {
+      auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
+      ensureParentDirectoryCreated(diskPath);
+
+      kj::FdOutputStream(raiiOpen(diskPath, O_WRONLY | O_TRUNC | O_CREAT))
+          .write(content.begin(), content.size());
+    } else {
+      KJ_FAIL_REQUIRE("Invalid PUT location.");
+    }
 
     auto responseContent = context.getResults(capnp::MessageSize { 32, 0 }).initContent();
     responseContent.setStatusCode(WebSession::Response::SuccessCode::OK);

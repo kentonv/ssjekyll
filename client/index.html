@@ -116,6 +116,8 @@
     <button id="new" onclick="newDoc()">New</button>
     <button id="delete" onclick="deleteDoc()">Delete</button>
     <button id="save" onclick="saveCurrent()" disabled>Saved</button><br>
+    <button id="upload" onclick="uploadFile()">Upload</button>
+    <button id="uploadArchive" onclick="uploadFile(true)">Upload Archive</button><br>
     <button id="showHowto" onclick="showHowto()">Setup DNS</button>
     <button id="reset" onclick="resetJekyll()"
         title="Click this if the preview seems to have stopped updating (Jekyll bug).">Reset Preview</button><br>
@@ -159,12 +161,16 @@ function doPost(url, data) {
     });
   });
 }
-function doPut(url, data) {
+function doPut(url, data, processData) {
+  if(typeof(processData)==='undefined')
+    processData = true;
+
   return new Promise(function (resolve, reject) {
     $.ajax(url, {
       type: "PUT",
       contentType: "text/plain",
-      data: data
+      data: data,
+      processData: processData
     }).then(resolve, function (xhrObject, textStatus, err) {
       reject(err);
     });
@@ -248,6 +254,39 @@ function newDoc() {
       }));
     }
   });
+}
+
+function uploadFile(isArchive) {
+  api = '/file'
+  if (isArchive) {
+    api = '/archive'
+  }
+
+  // Can't saveCurrent first because you can't trigger DOM events (ie. click) inside Promises
+
+  var form = $('<form><input type="file" name="test"></form>', { css: { 'display': 'none' }});
+  var input = $(form.children()[0]);
+
+  var selected = $("#tree").jstree(true).get_selected(true)[0];
+  var path = "";
+
+  if (selected && selected.original.isDir) {
+    path = selected.original.serverPath;
+  }
+
+  input.on('change', function(e) {
+    $.each(this.files, function(key, file) {
+      var filePath = path + "/" + file.name;
+      catchErrors(doPut(api + filePath, file, false).then(function (response) {
+        $("#tree").jstree(true).destroy();
+        $("#tree").empty();
+        initTree();
+      }));
+    });
+  });
+
+  // Trigger file selector (only works on newer browsers...)
+  input.click();
 }
 
 function deleteDoc() {
