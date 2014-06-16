@@ -143,47 +143,52 @@ sandstorm-www.host.example.com IN TXT <span id="howto-id">id</span></pre>
 </div>
 
 <script type="text/javascript">
-function doGet(url) {
-  return new Promise(function (resolve, reject) {
-    $.ajax(url, {dataType: "text"}).then(function (data, textStatus, xhr) {
-      resolve({type: xhr.getResponseHeader("Content-Type").split(";")[0], content: data});
-    }, function (xhrObject, textStatus, err) { reject(err); });
+// XMLHttpRequest's API is annoying. $.ajax() is easier except that its error handling makes no
+// sense.
+//
+// I based this somewhat on:
+//   https://plus.google.com/u/0/+JeffreyYasskin/posts/XjWc5oGs3dP
+//
+// (He just happened to post this on the same day I needed it.)
+function fetch(url, options) {
+  options = options || {};
+  return new Promise(function(resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function () {
+      if (xhr.status >= 400) {
+        reject(new Error("XHR returned status " + xhr.status + ":\n" + xhr.responseText));
+      } else {
+        resolve(xhr);
+      }
+    };
+    xhr.onerror = function(e) { reject(e); };
+    if (options.hasOwnProperty('responseType'))
+      xhr.responseType = options.responseType;
+    var method = 'get';
+    if (options.hasOwnProperty('method'))
+      method = options.method;
+    xhr.open(method, url)
+    var data = undefined;
+    if (options.hasOwnProperty('data'))
+      data = options.data;
+    xhr.send(data);
+  }).catch(function (err) {
+    alert(err.message);
+    throw err;
   });
+}
+
+function doGet(url) {
+  return fetch(url);
 }
 function doPost(url, data) {
-  return new Promise(function (resolve, reject) {
-    $.ajax(url, {
-      type: "POST",
-      contentType: "text/plain",
-      data: data
-    }).then(resolve, function (xhrObject, textStatus, err) {
-      reject(err);
-    });
-  });
+  return fetch(url, { method: "post", data: data });
 }
-function doPut(url, data, processData) {
-  if(typeof(processData)==='undefined')
-    processData = true;
-
-  return new Promise(function (resolve, reject) {
-    $.ajax(url, {
-      type: "PUT",
-      contentType: "text/plain",
-      data: data,
-      processData: processData
-    }).then(resolve, function (xhrObject, textStatus, err) {
-      reject(err);
-    });
-  });
+function doPut(url, data) {
+  return fetch(url, { method: "put", data: data });
 }
 function doDelete(url) {
-  return new Promise(function (resolve, reject) {
-    $.ajax(url, {
-      type: "DELETE"
-    }).then(resolve, function (xhrObject, textStatus, err) {
-      reject(err);
-    });
-  });
+  return fetch(url, { method: "delete" });
 }
 function catchErrors(promise) {
   promise.catch(function (err) {
@@ -277,7 +282,7 @@ function uploadFile(isArchive) {
   input.on('change', function(e) {
     $.each(this.files, function(key, file) {
       var filePath = path + "/" + file.name;
-      catchErrors(doPut(api + filePath, file, false).then(function (response) {
+      catchErrors(doPut(api + filePath, file).then(function (response) {
         $("#tree").jstree(true).destroy();
         $("#tree").empty();
         initTree();
@@ -333,19 +338,20 @@ function filesToTree(parent, files) {
 }
 
 function initTree() {
-  $.ajax("/file").done(function (data) {
+  doGet("/file").then(function (xhr) {
+    var data = JSON.parse(xhr.responseText);
     $("#tree").on("activate_node.jstree", function (e, data) {
       if (!data.node.original.isDir) {
         var serverPath = data.node.original.serverPath;
         catchErrors(saveCurrent().then(function () {
           return doGet("/file" + serverPath);
-        }).then(function (data) {
+        }).then(function (xhr) {
           currentPath = serverPath;
           if (!editorInitialized) initEditor();
           editor.removeAllListeners("change");
-          editor.setValue(data.content, -1);
+          editor.setValue(xhr.responseText, -1);
           editor.on("change", unsaved);
-          setEditorMode(data.type);
+          setEditorMode(xhr.getResponseHeader("content-type"));
         }));
       }
     }).jstree({core: {data: filesToTree("", data)}});
@@ -362,8 +368,8 @@ $(function () {
 });
 
 function showHowto() {
-  doGet("/publicId").then(function (info) {
-    info = JSON.parse(info.content);
+  doGet("/publicId").then(function (xhr) {
+    var info = JSON.parse(xhr.responseText);
     $("#howto-hostname").text(info.hostname);
     $("#howto-id").text(info.publicId);
     $("#howto").addClass("shown");
@@ -398,6 +404,12 @@ var MODE_MAP = {
 };
 
 function setEditorMode(mimeType) {
+  var semiPos = mimeType.indexOf(";");
+  if (semiPos >= 0) {
+    mimeType = mimeType.slice(0, semiPos);
+  }
+  mimeType = mimeType.trim();
+
   if (mimeType in MODE_MAP) {
     editor.getSession().setMode("ace/mode/" + MODE_MAP[mimeType]);
   } else {

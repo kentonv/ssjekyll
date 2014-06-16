@@ -139,15 +139,35 @@ kj::String dirnamePath(kj::StringPtr diskPath) {
 }
 
 template<class... Args>
-void callProcess(Args&&... args) {
+void callProcessWithPipe(kj::ArrayPtr<const kj::byte> stdinData,
+                         kj::StringPtr progname, Args&&... argv) {
+  int pipeFds[2];
+  KJ_SYSCALL(pipe2(pipeFds, O_CLOEXEC));
+  kj::AutoCloseFd pipeIn(pipeFds[0]);
+  kj::AutoCloseFd pipeOut(pipeFds[1]);
+
   pid_t pid;
   KJ_SYSCALL(pid = fork());
 
   if (pid > 0) {
-    int status;
-    waitpid(pid, &status, 0);
+    // After we've written to the pipe, *or* if writing to the pipe throws, we need to waitpid().
+    // TODO(cleanup): Someday when we have a nice KJ class encapsulating child processes, this can
+    //   be less ugly.
+    KJ_DEFER({
+      pipeOut = nullptr;
+      int status;
+
+      // Use non-fatal asserts here in case this is called during exception unwind.
+      KJ_SYSCALL(waitpid(pid, &status, 0)) { return; }
+      KJ_ASSERT(WIFEXITED(status) && WEXITSTATUS(status) == 0,
+                "child process failed", progname) { return; }
+    });
+
+    pipeIn = nullptr;
+    kj::FdOutputStream(kj::mv(pipeOut)).write(stdinData.begin(), stdinData.size());
   } else {
-    KJ_SYSCALL(execlp(kj::fwd<Args>(args)..., (const char*)nullptr));
+    KJ_SYSCALL(dup2(pipeIn, STDIN_FILENO));
+    KJ_SYSCALL(execlp(progname.cStr(), kj::fwd<Args>(argv)..., (const char*)nullptr));
     KJ_UNREACHABLE;
   }
 }
@@ -316,17 +336,9 @@ public:
 
       auto diskPath = kj::str("/var/src/", archive);
       ensureParentDirectoryCreated(diskPath);
-
-      // Write archive to temp path to work around jekyll auto-detecting changes in src directory
-      auto tmpPath = kj::str("/tmp/src/", archive);
-      ensureParentDirectoryCreated(tmpPath);
-      kj::FdOutputStream(raiiOpen(tmpPath, O_WRONLY | O_TRUNC | O_CREAT))
-          .write(content.begin(), content.size());
-
       auto outDir = dirnamePath(diskPath);
 
-      callProcess("tar", "tar", "xf", tmpPath.cStr(), "-C", outDir.cStr());
-      KJ_SYSCALL(unlink(tmpPath.cStr()));
+      callProcessWithPipe(content, "tar", "tar", "x", "-C", outDir.cStr());
     } else if (path.startsWith("file/")) {
       auto diskPath = kj::str("/var/src/", path.slice(strlen("file/")));
       ensureParentDirectoryCreated(diskPath);
