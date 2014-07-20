@@ -132,12 +132,19 @@
 
 <div id="howto">
   <div>
-    <p>To set up your domain to point at your published site, add the following DNS records to
-      your domain. Replace <code>host.example.com</code> with your site's hostname.
-    <pre>host.example.com IN CNAME <span id="howto-hostname">hostname</span>
-sandstorm-www.host.example.com IN TXT <span id="howto-id">id</span></pre>
-    <p>Note: If your site may get a lot of traffic, consider putting it behind a CDN.
-      <a href="https://cloudflare.com" target="_blank">CloudFlare</a>, for example, can do this for free.
+    <p id="howto-auto-url">Your site is available at: <a target="_blank" id="howto-auto-url-link"></a>
+    <div id="howto-demo">
+      <p>If you weren't using a demo account, you could additionally publish the site to an
+        arbitrary domain you control.
+    </div>
+    <div id="howto-nondemo">
+      <p>To set up your domain to point at your published site, add the following DNS records to
+        your domain. Replace <code>host.example.com</code> with your site's hostname.
+      <pre>host.example.com IN CNAME <span id="howto-hostname">hostname</span>
+  sandstorm-www.host.example.com IN TXT <span id="howto-id">id</span></pre>
+      <p>Note: If your site may get a lot of traffic, consider putting it behind a CDN.
+        <a href="https://cloudflare.com" target="_blank">CloudFlare</a>, for example, can do this for free.
+    </div>
     <p><button onclick="hideHowto()">Close</button>
   </div>
 </div>
@@ -373,6 +380,21 @@ function showHowto() {
     $("#howto-hostname").text(info.hostname);
     $("#howto-id").text(info.publicId);
     $("#howto").addClass("shown");
+    if (info.autoUrl.length > 0) {
+      var link = $("#howto-auto-url-link");
+      link.text(info.autoUrl);
+      link.attr("href", info.autoUrl);
+      $("#howto-auto-url").show();
+    } else {
+      $("#howto-auto-url").hide();
+    }
+    if (info.isDemoUser) {
+      $("#howto-demo").show();
+      $("#howto-nondemo").hide();
+    } else {
+      $("#howto-demo").hide();
+      $("#howto-nondemo").show();
+    }
   });
 }
 

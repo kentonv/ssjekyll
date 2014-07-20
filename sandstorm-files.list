@@ -105,6 +105,8 @@ usr/lib/python2.7/ctypes/_endian.py
 usr/lib/python2.7/ctypes/_endian.pyc
 usr/lib/python2.7/dist-packages
 usr/lib/python2.7/dist-packages/Brlapi-0.6.1.egg-info
+usr/lib/python2.7/dist-packages/Jinja2-2.7.3.egg-info/entry_points.txt
+usr/lib/python2.7/dist-packages/Mako-1.0.0.egg-info/entry_points.txt
 usr/lib/python2.7/dist-packages/PIL/Image.py
 usr/lib/python2.7/dist-packages/PIL/Image.pyc
 usr/lib/python2.7/dist-packages/PIL/ImageColor.py
@@ -135,6 +137,7 @@ usr/lib/python2.7/dist-packages/iotop-0.6.egg-info
 usr/lib/python2.7/dist-packages/louis-2.5.3.egg-info
 usr/lib/python2.7/dist-packages/numpy-1.8.1.egg-info
 usr/lib/python2.7/dist-packages/pexpect-3.2.egg-info
+usr/lib/python2.7/dist-packages/pip-1.5.6.egg-info/entry_points.txt
 usr/lib/python2.7/dist-packages/pycrypto-2.6.1.egg-info
 usr/lib/python2.7/dist-packages/pycups-1.9.63.egg-info
 usr/lib/python2.7/dist-packages/pycurl-7.19.3.1.egg-info
@@ -145,6 +148,8 @@ usr/lib/python2.7/dist-packages/python-support.pth
 usr/lib/python2.7/dist-packages/pyxdg-0.25.egg-info
 usr/lib/python2.7/dist-packages/reportlab-3.0.egg-info
 usr/lib/python2.7/dist-packages/setuptools.pth
+usr/lib/python2.7/dist-packages/wheel-0.23.0.egg-info/entry_points.txt
+usr/lib/python2.7/dist-packages/youtube_dl-2014.06.19.egg-info/entry_points.txt
 usr/lib/python2.7/encodings/__init__.py
 usr/lib/python2.7/encodings/__init__.pyc
 usr/lib/python2.7/encodings/aliases.py
@@ -400,6 +405,7 @@ usr/share/pyshared/Pygments-1.6.egg-info/entry_points.txt
 usr/share/pyshared/gtk-2.0-pysupport-compat.pth
 usr/share/pyshared/gyp-0.1.egg-info/entry_points.txt
 usr/share/pyshared/pygtk.pth
+usr/share/pyshared/wheel-0.23.0.egg-info/entry_points.txt
 usr/share/rubygems-integration/1.9.1/gems/colorator-0.1/lib/colorator.rb
 usr/share/rubygems-integration/1.9.1/gems/colorator-0.1/lib/colorator/core_ext.rb
 usr/share/rubygems-integration/1.9.1/gems/commander-4.1.5/lib/commander.rb

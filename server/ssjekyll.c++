@@ -283,10 +283,12 @@ public:
       redirect.setLocation("/preview/");
       return kj::READY_NOW;
     } else if (path == "publicId") {
-      return this->context.castAs<HackSessionContext>().getPublicIdRequest().send()
+      return this->context.castAs<sandstorm::HackSessionContext>().getPublicIdRequest().send()
           .then([context](auto&& response) mutable {
         auto text = kj::str("{ \"publicId\": \"", response.getPublicId(), "\",\n"
-                            "  \"hostname\": \"", response.getHostname(), "\" }");
+                            "  \"hostname\": \"", response.getHostname(), "\",\n"
+                            "  \"autoUrl\": \"", response.getAutoUrl(), "\",\n"
+                            "  \"isDemoUser\": ", response.getIsDemoUser(), " }");
         auto content = context.getResults(capnp::MessageSize {
             text.size() / sizeof(capnp::word) + 32, 0 }).initContent();
         content.setStatusCode(WebSession::Response::SuccessCode::OK);
