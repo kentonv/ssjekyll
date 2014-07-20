@@ -528,6 +528,13 @@ public:
         "{{ content }}\n"
         "</body>\n"
         "</html>\n");
+    writeFile("/var/published/index.html",
+        "<html>\n"
+        "<body>\n"
+        "<p>This Hacker CMS site has been set up successfully, but no content has\n"
+        "  been published. Go click the \"Publish\" button!\n"
+        "</body>\n"
+        "</html>\n");
 
     return true;
   }
