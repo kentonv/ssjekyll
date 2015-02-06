@@ -477,22 +477,6 @@ public:
         .build();
   }
 
-  class Restorer: public capnp::SturdyRefRestorer<capnp::AnyPointer> {
-  public:
-    explicit Restorer(capnp::Capability::Client&& defaultCap)
-        : defaultCap(kj::mv(defaultCap)) {}
-
-    capnp::Capability::Client restore(capnp::AnyPointer::Reader ref) override {
-      if (ref.isNull()) {
-        return defaultCap;
-      }
-      KJ_FAIL_ASSERT("Unknown ref.");
-    }
-
-  private:
-    capnp::Capability::Client defaultCap;
-  };
-
   kj::MainBuilder::Validity init() {
     KJ_SYSCALL(mkdir("/var/src", 0777));
     KJ_SYSCALL(mkdir("/var/src/_layouts", 0777));
@@ -550,19 +534,16 @@ public:
 
     auto stream = ioContext.lowLevelProvider->wrapSocketFd(3);
     capnp::TwoPartyVatNetwork network(*stream, capnp::rpc::twoparty::Side::CLIENT);
-    Restorer restorer(kj::heap<UiViewImpl>());
-    auto rpcSystem = capnp::makeRpcServer(network, restorer);
+    auto rpcSystem = capnp::makeRpcServer(network, kj::heap<UiViewImpl>());
 
     // Get the SandstormApi by restoring a null SturdyRef.
     // TODO(soon):  We don't use this, but for some reason the connection doesn't come up if we
     //   don't do this restore.  Cap'n Proto bug?  v8capnp bug?  Shell bug?
     {
       capnp::MallocMessageBuilder message;
-      capnp::rpc::SturdyRef::Builder ref = message.getRoot<capnp::rpc::SturdyRef>();
-      auto hostId = ref.getHostId().initAs<capnp::rpc::twoparty::SturdyRefHostId>();
-      hostId.setSide(capnp::rpc::twoparty::Side::SERVER);
-      SandstormApi::Client api = rpcSystem.restore(
-          hostId, ref.getObjectId()).castAs<SandstormApi>();
+      auto vatId = message.getRoot<capnp::rpc::twoparty::VatId>();
+      vatId.setSide(capnp::rpc::twoparty::Side::SERVER);
+      SandstormApi::Client api = rpcSystem.bootstrap(vatId).castAs<SandstormApi>();
     }
 
     kj::NEVER_DONE.wait(ioContext.waitScope);
