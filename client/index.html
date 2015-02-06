@@ -39,6 +39,43 @@
     }
 
     #status {
+      height: 99px;
+    }
+
+    #status button {
+      height: 20px;
+      font-size: 14px;
+      line-height: 14px;
+      padding: 2px 8px;
+      border: none;
+      border-radius: 3px;
+      background-color: #aaa;
+      margin: 2px 0;
+    }
+    #status button:disabled {
+      color: #666;
+    }
+
+    #status button:hover {
+      background-color: white;
+      cursor: pointer;
+    }
+    #status button:hover:disabled {
+      background-color: #aaa;
+      cursor: auto;
+    }
+
+    #tree {
+      position: fixed;
+      overflow-x: hidden;
+      overflow-y: auto;
+      top: 100px;
+      bottom: 0;
+      left: 0;
+      width: 249px;
+    }
+
+    #status {
       background-color: #ebebeb;
       text-align: center;
       white-space: nowrap;
