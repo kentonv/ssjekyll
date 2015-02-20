@@ -51,7 +51,7 @@ const pkgdef :Spk.PackageDefinition = (
   alwaysInclude = [
     "client",
 
-    "usr/share/rubygems-integration/2.1.0/gems/pygments.rb-0.6.0/vendor/pygments-main/pygments"
+    "usr/share/rubygems-integration/2.1.0/gems/pygments.rb-0.6.2/vendor/pygments-main/pygments"
     # Force inclusion of syntax highlighters for all languages, without having
     # tested them under `spk dev`.
   ]
