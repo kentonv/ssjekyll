@@ -6,6 +6,8 @@ const pkgdef :Spk.PackageDefinition = (
   id = "nqmcqs9spcdpmqyuxemf0tsgwn8awfvswc58wgk375g4u25xv6yh",
 
   manifest = (
+    appName = (defaultText = "Hacker CMS"),
+
     appVersion = 8,
 
     actions = [
