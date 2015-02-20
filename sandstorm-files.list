@@ -58,7 +58,10 @@ lib/x86_64-linux-gnu/libutil.so.1
 lib/x86_64-linux-gnu/libz.so.1
 lib/x86_64-linux-gnu/libz.so.1.2.8
 lib64/ld-linux-x86-64.so.2
+proc/cpuinfo
 sandstorm-manifest
+usr/bin/node
+usr/bin/nodejs
 usr/bin/python2
 usr/bin/python2.7
 usr/bin/ruby2.1
@@ -142,6 +145,7 @@ usr/lib/python2.7/dist-packages/pyxdg-0.25.egg-info
 usr/lib/python2.7/dist-packages/repoze.lru-0.6-nspkg.pth
 usr/lib/python2.7/dist-packages/repoze.lru-0.6.egg-info/entry_points.txt
 usr/lib/python2.7/dist-packages/repoze.lru-0.6.egg-info/namespace_packages.txt
+usr/lib/python2.7/dist-packages/repoze/__init__.py
 usr/lib/python2.7/dist-packages/roman-2.0.0.egg-info
 usr/lib/python2.7/dist-packages/setuptools.pth
 usr/lib/python2.7/dist-packages/uTidylib-0.2.egg-info
@@ -368,10 +372,18 @@ usr/share/pyshared/ndg_httpsclient-0.3.2.egg-info/entry_points.txt
 usr/share/pyshared/ndg_httpsclient-0.3.2.egg-info/namespace_packages.txt
 usr/share/pyshared/pygtk.pth
 usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/bigdecimal-1.2.5/bigdecimal.so
+usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/bigdecimal-1.2.5/gem.build_complete
+usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/fast-stemmer-1.0.2/gem.build_complete
 usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/ffi-1.9.5/ffi_c.so
+usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/ffi-1.9.5/gem.build_complete
+usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/hitimes-1.2.2/gem.build_complete
 usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/hitimes-1.2.2/hitimes/2.1/hitimes.so
+usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/posix-spawn-0.3.9/gem.build_complete
 usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/posix-spawn-0.3.9/posix_spawn_ext.so
+usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/psych-2.0.6/gem.build_complete
 usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/psych-2.0.6/psych.so
+usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/redcarpet-3.1.2/gem.build_complete
+usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/yajl-ruby-1.1.0/gem.build_complete
 usr/share/rubygems-integration/2.1.0/extensions/x86_64-linux/2.1.0/yajl-ruby-1.1.0/yajl/yajl.so
 usr/share/rubygems-integration/2.1.0/gems/celluloid-0.16.0/lib/celluloid.rb
 usr/share/rubygems-integration/2.1.0/gems/celluloid-0.16.0/lib/celluloid/actor.rb

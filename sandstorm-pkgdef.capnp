@@ -27,11 +27,13 @@ const pkgdef :Spk.PackageDefinition = (
   sourceMap = (
     searchPath = [
       (sourcePath = "."),
+      (sourcePath = "empty-file", packagePath = "usr/bin/node"),
+      (sourcePath = "empty-file", packagePath = "usr/bin/nodejs"),
       (sourcePath = "/", hidePaths = [ "home", "proc", "sys", "etc" ]),
       (sourcePath = "/etc/python2.7", packagePath = "etc/python2.7"),
       (sourcePath = "/etc/ld.so.cache", packagePath = "etc/ld.so.cache"),
       (sourcePath = "/etc/localtime", packagePath = "etc/localtime"),
-      (sourcePath = "/etc/passwd", packagePath = "etc/passwd"),
+      (sourcePath = "passwd", packagePath = "etc/passwd"),
       (sourcePath = "/etc/nsswitch.conf", packagePath = "etc/nsswitch.conf"),
       
       (sourcePath = "/var/lib/gems", packagePath = "usr/share/rubygems-integration")
@@ -48,8 +50,10 @@ const pkgdef :Spk.PackageDefinition = (
 
   alwaysInclude = [
     "client",
-    "usr/share/rubygems-integration/1.9.1/gems/pygments.rb-0.5.4",
-    "usr/share/rubygems-integration/1.9.1/gems/maruku-0.7.0"
+
+    "usr/share/rubygems-integration/2.1.0/gems/pygments.rb-0.6.0/vendor/pygments-main/pygments"
+    # Force inclusion of syntax highlighters for all languages, without having
+    # tested them under `spk dev`.
   ]
 );
 
