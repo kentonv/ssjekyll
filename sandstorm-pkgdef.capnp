@@ -6,9 +6,10 @@ const pkgdef :Spk.PackageDefinition = (
   id = "nqmcqs9spcdpmqyuxemf0tsgwn8awfvswc58wgk375g4u25xv6yh",
 
   manifest = (
-    appName = (defaultText = "Hacker CMS"),
+    appTitle = (defaultText = "Hacker CMS"),
 
-    appVersion = 8,
+    appVersion = 9,
+    appMarketingVersion = (defaultText = "2015-06-29"),
 
     actions = [
       ( title = (defaultText = "New Hacker CMS Site"),

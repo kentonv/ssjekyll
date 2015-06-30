@@ -177,7 +177,7 @@
     <div id="howto-nondemo">
       <p>To set up your domain to point at your published site, add the following DNS records to
         your domain. Replace <code>host.example.com</code> with your site's hostname.
-      <pre>host.example.com IN CNAME <span id="howto-hostname">hostname</span>
+      <pre>  host.example.com IN CNAME <span id="howto-hostname">hostname</span>
   sandstorm-www.host.example.com IN TXT <span id="howto-id">id</span></pre>
       <p>Note: If your site may get a lot of traffic, consider putting it behind a CDN.
         <a href="https://cloudflare.com" target="_blank">CloudFlare</a>, for example, can do this for free.
@@ -414,17 +414,15 @@ $(function () {
 function showHowto() {
   doGet("/publicId").then(function (xhr) {
     var info = JSON.parse(xhr.responseText);
-    $("#howto-hostname").text(info.hostname);
+    var url = document.createElement("a");
+    url.href = info.autoUrl;
+    $("#howto-hostname").text(url.hostname);
     $("#howto-id").text(info.publicId);
     $("#howto").addClass("shown");
-    if (info.autoUrl.length > 0) {
-      var link = $("#howto-auto-url-link");
-      link.text(info.autoUrl);
-      link.attr("href", info.autoUrl);
-      $("#howto-auto-url").show();
-    } else {
-      $("#howto-auto-url").hide();
-    }
+    var link = $("#howto-auto-url-link");
+    link.text(info.autoUrl);
+    link.attr("href", info.autoUrl);
+    $("#howto-auto-url").show();
     if (info.isDemoUser) {
       $("#howto-demo").show();
       $("#howto-nondemo").hide();
