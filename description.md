@@ -1,0 +1,1 @@
+A mash-up of [Jekyll](http://jekyllrb.com/), [Ace](http://ace.c9.io/), and [jsTree](http://www.jstree.com/) to create a Markdown-based web site editing and publishing app. This app was stiched together over the course of one day by Kenton.

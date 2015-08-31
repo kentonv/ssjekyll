@@ -24,7 +24,32 @@ const pkgdef :Spk.PackageDefinition = (
       argv = ["/bin/ssjekyll"],
       environ = [
         (key = "PATH", value = "/usr/local/bin:/usr/bin:/bin"),
-        (key = "LD_LIBRARY_PATH", value = "/usr/local/lib:/usr/lib:/lib")])
+        (key = "LD_LIBRARY_PATH", value = "/usr/local/lib:/usr/lib:/lib")]),
+
+    metadata = (
+      icons = (
+        appGrid = (svg = embed "app-graphics/hackercms-128.svg"),
+        grain = (svg = embed "app-graphics/hackercms-24.svg"),
+        market = (svg = embed "app-graphics/hackercms-150.svg"),
+      ),
+
+      codeUrl = "https://github.com/kentonv/ssjekyll",
+      license = (openSource = bsd2Clause),
+      categories = [webPublishing],
+
+      author = (
+        contactEmail = "kenton@sandstorm.io",
+        pgpSignature = embed "pgp-signature",
+      ),
+      pgpKeyring = embed "pgp-keyring",
+
+      description = (defaultText = embed "description.md"),
+      shortDescription = (defaultText = "Markdown CMS"),
+
+      screenshots = [
+        (width = 448, height = 381, png = embed "app-graphics/screenshot.png")
+      ],
+    ),
   ),
 
   sourceMap = (
