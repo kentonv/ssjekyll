@@ -8,11 +8,12 @@ const pkgdef :Spk.PackageDefinition = (
   manifest = (
     appTitle = (defaultText = "Hacker CMS"),
 
-    appVersion = 9,
+    appVersion = 10,
     appMarketingVersion = (defaultText = "2015-06-29"),
 
     actions = [
       ( title = (defaultText = "New Hacker CMS Site"),
+        nounPhrase = (defaultText = "site"),
         command = (
           argv = ["/bin/ssjekyll", "-i"],
           environ = [
