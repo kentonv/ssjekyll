@@ -1,6 +1,8 @@
-# Sandstorm-Jekyll-Ace-jsTree
+# Hacker CMS
 
-This is a [Sandstorm](http://sandstorm.io) app originally created in one day.
+[View on Sandstorm App Market &raquo;](https://apps.sandstorm.io/app/nqmcqs9spcdpmqyuxemf0tsgwn8awfvswc58wgk375g4u25xv6yh) | [Try it now &raquo;](https://demo.sandstorm.io/appdemo/nqmcqs9spcdpmqyuxemf0tsgwn8awfvswc58wgk375g4u25xv6yh)
+
+This is a [Sandstorm](https://sandstorm.io) app originally created in one day.
 It is primarily a mash-up of three things:
 
 * [Jekyll](http://jekyllrb.com/), a tool for generating static sites from Markdown.
